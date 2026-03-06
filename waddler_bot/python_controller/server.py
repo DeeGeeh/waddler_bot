@@ -23,9 +23,18 @@ HTML = """
 <body>
   <div id="zone"></div>
   <script>
-    const ws = new WebSocket(`ws://${location.host}/ws`);
+    const wsSchema = location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${wsSchema}://${location.host}/ws`);
     const joystick = nipplejs.create({ zone: document.getElementById('zone'), mode: 'static',
                                        position: { left: '50%', top: '50%' }, color: 'white' });
+
+    let lastCmd = 'stop';
+    const sendCmd = (cmd) => {
+      if (ws.readyState === WebSocket.OPEN && cmd !== lastCmd) {
+        ws.send(cmd);
+        lastCmd = cmd;
+      }
+    };
 
     joystick.on('move', (_, data) => {
       const angle = data.angle.degree;
@@ -34,10 +43,10 @@ HTML = """
       else if (angle > 225 && angle < 315)   cmd = 'backward';
       else if (angle >= 135 && angle <= 225) cmd = 'left';
       else                                   cmd = 'right';
-      ws.send(cmd);
+      sendCmd(cmd);
     });
 
-    joystick.on('end', () => ws.send('stop'));
+    joystick.on('end', () => sendCmd('stop'));
   </script>
 </body>
 </html>
@@ -45,7 +54,7 @@ HTML = """
 
 
 @app.get("/")
-async def index():
+async def index() -> HTMLResponse:
     return HTMLResponse(HTML)
 
 

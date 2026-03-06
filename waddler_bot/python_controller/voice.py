@@ -4,6 +4,8 @@ import openai
 import sounddevice
 import numpy as np
 import scipy.io.wavfile as wav
+from openai.types.audio import Transcription
+from pathlib import Path
 
 AUDIO_PATH = "audio.wav"
 SAMPLE_RATE = 16000
@@ -18,8 +20,12 @@ def capture_and_transcribe() -> str:
     # Whisper expects 16-bit PCM
     audio_int16 = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
     wav.write(AUDIO_PATH, SAMPLE_RATE, audio_int16)
-    response = openai.audio.transcriptions.create(
-        file=open(AUDIO_PATH, "rb"),
-        model="whisper-1",
-    )
-    return response.text
+    try:
+        with open(AUDIO_PATH, "rb") as audio_file:
+            response: Transcription = openai.audio.transcriptions.create(
+                file=audio_file,
+                model="whisper-1",
+            )
+        return response.text
+    finally:
+        Path(AUDIO_PATH).unlink(missing_ok=True)
