@@ -5,6 +5,18 @@ use pyo3::prelude::*;
 
 mod motor;
 
+/// Initialize GPIO pins for motors (left_forward, left_backward, right_forward, right_backward).
+/// Call once at startup when using the rust backend. No-op on non-Linux.
+#[pyfunction]
+fn init(
+    left_forward: u8,
+    left_backward: u8,
+    right_forward: u8,
+    right_backward: u8,
+) {
+    motor::init(left_forward, left_backward, right_forward, right_backward);
+}
+
 /// Dispatch joystick command string to motor layer.
 /// Called directly by the movement pipeline (no AI).
 #[pyfunction]
@@ -20,6 +32,7 @@ fn execute_command(cmd: &str) {
 
 #[pymodule]
 fn rust_motor(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(init, m)?)?;
     m.add_function(wrap_pyfunction!(execute_command, m)?)?;
     Ok(())
 }

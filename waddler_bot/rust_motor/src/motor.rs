@@ -1,27 +1,80 @@
-// GPIO / PWM motor and servo control.
-// No-op stubs when not on Pi; real GPIO/PWM when targeting Linux (rppal).
+//! GPIO motor control: real on Linux (rppal), no-op elsewhere.
 
-/// Move forward. Stub until GPIO/PWM wired.
+#[cfg(target_os = "linux")]
+use std::sync::OnceLock;
+
+#[cfg(target_os = "linux")]
+static PINS: OnceLock<(u8, u8, u8, u8)> = OnceLock::new();
+
+// ---- Linux: real GPIO via rppal ----
+
+#[cfg(target_os = "linux")]
+pub fn init(left_forward: u8, left_backward: u8, right_forward: u8, right_backward: u8) {
+    let _ = PINS.set((left_forward, left_backward, right_forward, right_backward));
+}
+
+#[cfg(target_os = "linux")]
+fn set_pins(lf: bool, lb: bool, rf: bool, rb: bool) {
+    if let Some(&(lf_pin, lb_pin, rf_pin, rb_pin)) = PINS.get() {
+        if let Ok(gpio) = rppal::gpio::Gpio::new() {
+            let set = |pin: u8, high: bool| {
+                if let Ok(out) = gpio.get(pin).and_then(|p| p.into_output()) {
+                    if high {
+                        out.set_high();
+                    } else {
+                        out.set_low();
+                    }
+                }
+            };
+            set(lf_pin, lf);
+            set(lb_pin, lb);
+            set(rf_pin, rf);
+            set(rb_pin, rb);
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
 pub fn move_forward() {
-    // TODO: GPIO/PWM when on Pi
+    set_pins(true, false, true, false);
 }
 
-/// Move backward. Stub until GPIO/PWM wired.
+#[cfg(target_os = "linux")]
 pub fn move_backward() {
-    // TODO: GPIO/PWM when on Pi
+    set_pins(false, true, false, true);
 }
 
-/// Turn left. Stub until GPIO/PWM wired.
+#[cfg(target_os = "linux")]
 pub fn turn_left() {
-    // TODO: GPIO/PWM when on Pi
+    set_pins(false, true, true, false);
 }
 
-/// Turn right. Stub until GPIO/PWM wired.
+#[cfg(target_os = "linux")]
 pub fn turn_right() {
-    // TODO: GPIO/PWM when on Pi
+    set_pins(true, false, false, true);
 }
 
-/// Stop all motors. Stub until GPIO/PWM wired.
+#[cfg(target_os = "linux")]
 pub fn stop() {
-    // TODO: GPIO/PWM when on Pi
+    set_pins(false, false, false, false);
 }
+
+// ---- Non-Linux: no-ops ----
+
+#[cfg(not(target_os = "linux"))]
+pub fn init(_left_forward: u8, _left_backward: u8, _right_forward: u8, _right_backward: u8) {}
+
+#[cfg(not(target_os = "linux"))]
+pub fn move_forward() {}
+
+#[cfg(not(target_os = "linux"))]
+pub fn move_backward() {}
+
+#[cfg(not(target_os = "linux"))]
+pub fn turn_left() {}
+
+#[cfg(not(target_os = "linux"))]
+pub fn turn_right() {}
+
+#[cfg(not(target_os = "linux"))]
+pub fn stop() {}

@@ -1,6 +1,6 @@
-"""Movement pipeline: FastAPI serves joystick UI, WebSocket forwards commands to Rust. No AI."""
+"""Movement pipeline: FastAPI serves joystick UI, WebSocket forwards commands to motor backend. No AI."""
 
-import rust_motor
+from motor_backend import execute_command
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
 
@@ -63,7 +63,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
-            cmd = await websocket.receive_text()
-            rust_motor.execute_command(cmd)  # direct to Rust, no AI involved
+            cmd: str = await websocket.receive_text()
+            execute_command(cmd)  # motor_backend: rust (GPIO) or sim (TCP)
     except Exception:
-        rust_motor.execute_command("stop")  # safe stop on disconnect
+        execute_command("stop")  # safe stop on disconnect
