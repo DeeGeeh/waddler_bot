@@ -1,0 +1,11 @@
+project-includes = [
+    "**/*.py*",
+]
+
+search-path = [
+    "waddler_bot/python_controller"
+]
+
+replace-imports-with-any = [
+    "rust_motor"
+]
