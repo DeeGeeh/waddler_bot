@@ -1,0 +1,6 @@
+{
+  "_comment": "TODO: ADD CONFIG FOR MOTOR AND SERVO",
+  "motor_pins": {},
+  "servo_params": {},
+  "pwm": {}
+}

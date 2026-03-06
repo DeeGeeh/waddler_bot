@@ -1,0 +1,8 @@
+openai
+opencv-python
+sounddevice
+numpy
+scipy
+fastapi
+uvicorn
+websockets
