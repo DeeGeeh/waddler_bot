@@ -20,10 +20,12 @@ def _run_and_capture(fn: Callable[[], None]) -> None:
 
 
 def start_movement_server() -> None:
+    print("Starting movement server...")
     uvicorn.run(app, host="0.0.0.0", port=8080)
 
 
 def start_personality() -> None:
+    print("Starting personality...")
     asyncio.run(personality.personality_loop())
 
 
