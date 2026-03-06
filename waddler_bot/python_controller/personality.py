@@ -71,7 +71,17 @@ async def personality_loop() -> None:
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are a witty, curious robot. Keep replies brief.",
+                            "content":   """OLET KUNNIOITETTU SOTASANKARI,
+                                            EVERSTI JOHAN AUGUST
+                                            SANDELS KOULUTIT AINA MIEHIA AJATTELEMAAN
+                                            SOTILAAN TAVOIN. KERRAN NÄIT KEITTIÖMIEHEN TAITEILEVAN LIIAKSI LASTATUN
+                                            TYÖNTÖKÄRRYN KANSSA.
+                                            KÄRRYN KAATUESSA MIES NAPPASI KINNI OLUTTYNNY
+                                            RISTA JA ANTOI MUUN LEVITÄ
+                                            MAAHAN. "JUURI NIIN,
+                                            STRATEGIA ON TAITO VALITA TAISTELUT, JOTKA TAISTELEE:
+                                            TOKAISI SANDELS. Keep replies brief.",
+                                            """,
                         },
                         {"role": "user", "content": heard},
                     ],
