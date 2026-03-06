@@ -15,6 +15,24 @@ This folder contains the robot stack: **two decoupled pipelines** — movement (
 | `python_controller/` | Python app: `server.py` (joystick UI + WebSocket), `personality.py` (voice/vision/TTS loop), `voice.py`, `vision.py`. |
 | `config/` | Config files (e.g. motor pins, servo params). |
 
+## System dependencies
+
+Before running on a fresh Pi (or any Linux machine), install the required OS packages:
+
+```bash
+# Audio playback — mpg123 for OpenAI TTS output; alsa-utils for the pico2wave fallback (aplay)
+sudo apt-get update
+sudo apt-get install -y mpg123 alsa-utils
+
+# Offline TTS fallback — pico2wave (svox-pico text-to-speech)
+sudo apt-get install -y libttspico-utils
+
+# PortAudio — required by the sounddevice Python package for microphone capture
+sudo apt-get install -y portaudio19-dev
+```
+
+After installing the OS packages above, `pip install -r requirements.txt` will be able to build `sounddevice` correctly, and `mpg123`, `pico2wave`, and `aplay` will be available at runtime.
+
 ## How to run
 
 - **Rust:** From `rust_motor/`, build the PyO3 module. On the Pi, use maturin/cross to build for `arm-unknown-linux-gnueabihf` and copy the built `.so` into this project (e.g. so Python can `import rust_motor`). On your laptop, `maturin develop` for local testing.
