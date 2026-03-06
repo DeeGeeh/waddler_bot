@@ -16,21 +16,25 @@ pub fn init(left_forward: u8, left_backward: u8, right_forward: u8, right_backwa
 #[cfg(target_os = "linux")]
 fn set_pins(lf: bool, lb: bool, rf: bool, rb: bool) {
     if let Some(&(lf_pin, lb_pin, rf_pin, rb_pin)) = PINS.get() {
-        if let Ok(gpio) = rppal::gpio::Gpio::new() {
-            let set = |pin: u8, high: bool| {
-                if let Ok(out) = gpio.get(pin).and_then(|p| p.into_output()) {
-                    if high {
-                        out.set_high();
-                    } else {
-                        out.set_low();
+        match rppal::gpio::Gpio::new() {
+            Ok(gpio) => {
+                let set = |pin: u8, high: bool| {
+                    match gpio.get(pin).map(|p| p.into_output()) {
+                        Ok(out) => {
+                            if high { out.set_high(); } else { out.set_low(); }
+                        }
+                        Err(e) => eprintln!("GPIO pin {} error: {}", pin, e),
                     }
-                }
-            };
-            set(lf_pin, lf);
-            set(lb_pin, lb);
-            set(rf_pin, rf);
-            set(rb_pin, rb);
+                };
+                set(lf_pin, lf);
+                set(lb_pin, lb);
+                set(rf_pin, rf);
+                set(rb_pin, rb);
+            }
+            Err(e) => eprintln!("GPIO init error: {}", e),
         }
+    } else {
+        eprintln!("Motor pins not initialized; call init() first");
     }
 }
 
