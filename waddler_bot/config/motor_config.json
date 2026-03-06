@@ -1,6 +1,11 @@
 {
-  "_comment": "TODO: ADD CONFIG FOR MOTOR AND SERVO",
-  "motor_pins": {},
+  "_comment": "TODO: BCM GPIO numbers for two-wheel DC H-bridge; change for our wiring.",
+  "motor_pins": {
+    "left_forward": 17,
+    "left_backward": 27,
+    "right_forward": 22,
+    "right_backward": 23
+  },
   "servo_params": {},
   "pwm": {}
 }
