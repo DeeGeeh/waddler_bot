@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Author: 100% Cursor generated, dont blame me for this shit.
 # Cross-build rust_motor for Raspberry Pi OS 64-bit (aarch64).
 # Run on Linux or WSL2. Copies .so into python_controller for easy transfer.
 

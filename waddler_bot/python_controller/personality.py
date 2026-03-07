@@ -1,4 +1,4 @@
-"""Personality pipeline: async loop for voice, vision, GPT-4o, TTS. Never touches motors."""
+"""Personality pipeline: async loop for voice, GPT-4o, TTS. Never touches motors."""
 
 from openai.types.chat import ChatCompletion
 import asyncio
@@ -9,7 +9,6 @@ from pathlib import Path
 
 import openai
 import voice
-import vision
 
 logger: Logger = logging.getLogger(__name__)
 
@@ -64,18 +63,8 @@ def speak(text: str) -> None:
             raise
 
 async def personality_loop() -> None:
-    """Run voice + vision personality; never calls motor code."""
-    iteration = 0
+    """Run voice personality; never calls motor code."""
     while True:
-        # Vision: observe surroundings every ~10 seconds and narrate
-        if iteration % 10 == 0:
-            try:
-                comment: str = vision.observe_and_comment()
-                if comment and comment.strip():
-                    speak(comment)
-            except Exception:
-                logger.exception("Vision observe_and_comment failed")
-
         # Voice: listen for wake word "Waddler", then respond to the remainder
         try:
             heard: str = voice.capture_and_transcribe()
@@ -107,5 +96,4 @@ async def personality_loop() -> None:
         except Exception:
             logger.exception("Voice capture, GPT, or speak failed")
 
-        iteration += 1
         await asyncio.sleep(1)

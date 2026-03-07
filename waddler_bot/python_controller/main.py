@@ -1,4 +1,4 @@
-"""Start both pipelines in separate threads: movement (joystick server) and personality (voice/vision/TTS)."""
+"""Start both pipelines in separate threads: movement (joystick server) and personality (voice/TTS)."""
 
 import sys
 import threading
