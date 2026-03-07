@@ -12,88 +12,102 @@ import voice
 
 logger: Logger = logging.getLogger(__name__)
 
-WAKE_WORD = "waddler"
 TTS_FILE = Path("reply.mp3")
 TTS_FILE_WAV = Path("reply.wav")
 
-
-def user_message_after_wake_word(transcript: str) -> str | None:
-    """If transcript starts with the wake word, return the remainder; else None.
-    Returns None when remainder is empty (user said only the wake word).
-    """
-    if not transcript or not transcript.strip():
-        return None
-    normalized = transcript.strip().lower()
-    if not normalized.startswith(WAKE_WORD):
-        return None
-    remainder = transcript.strip()[len(WAKE_WORD):].strip()
-    return remainder if remainder else None
+SYSTEM_PROMPT = """OLET KUNNIOITETTU SOTASANKARI, EVERSTI JOHAN AUGUST SANDELS.
+KOULUTIT AINA MIEHIA AJATTELEMAAN SOTILAAN TAVOIN.
+KERRAN NÄIT KEITTIÖMIEHEN TAITEILEVAN LIIAKSI LASTATUN TYÖNTÖKÄRRYN KANSSA.
+KÄRRYN KAATUESSA MIES NAPPASI KINNI OLUTTYNNYRISTA JA ANTOI MUUN LEVITÄ MAAHAN.
+"JUURI NIIN, STRATEGIA ON TAITO VALITA TAISTELUT, JOTKA TAISTELEE" TOKAISI SANDELS.
+Keep replies brief. REPLY ONLY IN FINNISH. BEGIN EVERY MESSAGE WITH NONIIN MIEHET."""
 
 
 def speak(text: str) -> None:
-    """Output text as speech. OpenAI TTS (mpg123) or pico2wave + aplay fallback."""
+    """Output text as speech. OpenAI TTS then mpg123, or ffmpeg+aplay, or pico2wave+aplay fallback."""
     text = text.strip()
     if not text:
         return
-        
+
     try:
         with openai.audio.speech.with_streaming_response.create(
             model="tts-1", voice="onyx", input=text
         ) as response:
             TTS_FILE.write_bytes(response.read())
-        subprocess.run(["mpg123", "-q", str(TTS_FILE)], check=False, capture_output=True)
     except Exception as e:
-        logger.warning(
-            "OpenAI TTS or mpg123 failed, trying pico2wave fallback: %s", e, exc_info=True
+        logger.warning("OpenAI TTS failed: %s", e, exc_info=True)
+        _speak_fallback_pico2wave(text)
+        return
+
+    # Prefer mpg123 (MP3), then ffmpeg+aplay, then pico2wave
+    r = subprocess.run(
+        ["mpg123", "-q", str(TTS_FILE)],
+        capture_output=True,
+        timeout=30,
+    )
+    if r.returncode == 0:
+        return
+    if r.stderr:
+        logger.debug("mpg123 stderr: %s", r.stderr.decode(errors="replace").strip())
+
+    # ffmpeg: convert MP3 to WAV and play
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(TTS_FILE), "-acodec", "pcm_s16le", "-ar", "44100", str(TTS_FILE_WAV)],
+            check=True,
+            capture_output=True,
+            timeout=10,
         )
-        # Offline fallback (Linux/Pi: pico2wave + aplay)
-        try:
-            subprocess.run(
-                ["pico2wave", "-w", str(TTS_FILE_WAV), text],
-                check=True,
-                capture_output=True,
-            )
-            subprocess.run(["aplay", "-q", str(TTS_FILE_WAV)], check=False, capture_output=True)
-        except (FileNotFoundError, subprocess.CalledProcessError) as e:
-            logger.warning(
-                "pico2wave/aplay fallback failed (missing or failed): %s", e, exc_info=True
-            )
-        except Exception:
-            logger.exception("Unexpected error in pico2wave fallback")
-            raise
+        subprocess.run(["aplay", "-q", str(TTS_FILE_WAV)], check=False, capture_output=True, timeout=15)
+        return
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        logger.debug("ffmpeg/aplay fallback failed: %s", e)
+
+    _speak_fallback_pico2wave(text)
+
+
+def _speak_fallback_pico2wave(text: str) -> None:
+    """Offline fallback: pico2wave + aplay."""
+    try:
+        subprocess.run(
+            ["pico2wave", "-w", str(TTS_FILE_WAV), text],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(["aplay", "-q", str(TTS_FILE_WAV)], check=False, capture_output=True)
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        logger.warning("pico2wave/aplay fallback failed: %s", e)
+    except Exception:
+        logger.exception("Unexpected error in pico2wave fallback")
+
 
 async def personality_loop() -> None:
     """Run voice personality; never calls motor code."""
     while True:
-        # Voice: listen for wake word "Waddler", then respond to the remainder
         try:
             heard: str = voice.capture_and_transcribe()
-            user_msg: str | None = user_message_after_wake_word(heard or "")
-            if user_msg is not None:
-                response: ChatCompletion = openai.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
-                        {
-                            "role": "system",
-                            "content":   """OLET KUNNIOITETTU SOTASANKARI,
-                                            EVERSTI JOHAN AUGUST
-                                            SANDELS KOULUTIT AINA MIEHIA AJATTELEMAAN
-                                            SOTILAAN TAVOIN. KERRAN NÄIT KEITTIÖMIEHEN TAITEILEVAN LIIAKSI LASTATUN
-                                            TYÖNTÖKÄRRYN KANSSA.
-                                            KÄRRYN KAATUESSA MIES NAPPASI KINNI OLUTTYNNY
-                                            RISTA JA ANTOI MUUN LEVITÄ
-                                            MAAHAN. "JUURI NIIN,
-                                            STRATEGIA ON TAITO VALITA TAISTELUT, JOTKA TAISTELEE:
-                                            TOKAISI SANDELS. Keep replies brief.",
-                                            """,
-                        },
-                        {"role": "user", "content": user_msg},
-                    ],
-                )
-                reply: str | None = response.choices[0].message.content
-                if reply:
-                    speak(reply)
+            raw: str = (heard or "").strip()
+
+            if not raw:
+                await asyncio.sleep(0.2)
+                continue
+
+            logger.info("heard: %r", raw)
+
+            response: ChatCompletion = openai.chat.completions.create(
+                model="gpt-4.1-mini",
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": raw},
+                ],
+            )
+
+            reply: str | None = response.choices[0].message.content
+            if reply:
+                logger.info("replying: %r", reply[:80] + "..." if len(reply) > 80 else reply)
+                speak(reply)
+
         except Exception:
             logger.exception("Voice capture, GPT, or speak failed")
 
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.2)

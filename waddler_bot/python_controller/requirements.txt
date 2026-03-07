@@ -1,6 +1,5 @@
 openai
 sounddevice
-numpy
 fastapi
 uvicorn
 websockets

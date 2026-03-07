@@ -1,8 +1,11 @@
 """Start both pipelines in separate threads: movement (joystick server) and personality (voice/TTS)."""
 
+import logging
 import sys
 import threading
 from collections.abc import Callable
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 import asyncio
 import uvicorn
 from server import app
