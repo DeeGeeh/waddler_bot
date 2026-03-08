@@ -12,7 +12,6 @@ import voice
 
 logger: Logger = logging.getLogger(__name__)
 
-TTS_FILE = Path("reply.mp3")
 TTS_FILE_WAV = Path("reply.wav")
 
 SYSTEM_PROMPT = """OLET KUNNIOITETTU SOTASANKARI, EVERSTI JOHAN AUGUST SANDELS.
@@ -24,7 +23,7 @@ Keep replies brief. REPLY ONLY IN FINNISH. BEGIN EVERY MESSAGE WITH NONIIN MIEHE
 
 
 def speak(text: str) -> None:
-    """Output text as speech. OpenAI TTS then mpg123, or ffmpeg+aplay, or pico2wave+aplay fallback."""
+    """Output text as speech. OpenAI TTS then mpg123 (stdin), or ffmpeg|aplay (pipe), or pico2wave+aplay fallback."""
     text = text.strip()
     if not text:
         return
@@ -33,15 +32,16 @@ def speak(text: str) -> None:
         with openai.audio.speech.with_streaming_response.create(
             model="tts-1", voice="onyx", input=text
         ) as response:
-            TTS_FILE.write_bytes(response.read())
+            mp3_bytes = response.read()
     except Exception as e:
         logger.warning("OpenAI TTS failed: %s", e, exc_info=True)
         _speak_fallback_pico2wave(text)
         return
 
-    # Prefer mpg123 (MP3), then ffmpeg+aplay, then pico2wave
+    # Prefer mpg123 from stdin (no temp file)
     r = subprocess.run(
-        ["mpg123", "-q", str(TTS_FILE)],
+        ["mpg123", "-q", "-"],
+        input=mp3_bytes,
         capture_output=True,
         timeout=30,
     )
@@ -50,18 +50,31 @@ def speak(text: str) -> None:
     if r.stderr:
         logger.debug("mpg123 stderr: %s", r.stderr.decode(errors="replace").strip())
 
-    # ffmpeg: convert MP3 to WAV and play
+    # ffmpeg pipe to aplay (no temp file)
     try:
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", str(TTS_FILE), "-acodec", "pcm_s16le", "-ar", "44100", str(TTS_FILE_WAV)],
-            check=True,
-            capture_output=True,
-            timeout=10,
+        p_ffmpeg = subprocess.Popen(
+            [
+                "ffmpeg", "-y", "-f", "mp3", "-i", "pipe:0",
+                "-acodec", "pcm_s16le", "-ar", "44100", "-f", "s16le", "pipe:1",
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
         )
-        subprocess.run(["aplay", "-q", str(TTS_FILE_WAV)], check=False, capture_output=True, timeout=15)
+        p_aplay = subprocess.Popen(
+            ["aplay", "-q", "-f", "S16_LE", "-r", "44100", "-c", "1"],
+            stdin=p_ffmpeg.stdout,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if p_ffmpeg.stdin is not None:
+            p_ffmpeg.stdin.write(mp3_bytes)
+            p_ffmpeg.stdin.close()
+        p_ffmpeg.wait(timeout=10)
+        p_aplay.wait(timeout=15)
         return
-    except (FileNotFoundError, subprocess.CalledProcessError) as e:
-        logger.debug("ffmpeg/aplay fallback failed: %s", e)
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
+        logger.debug("ffmpeg/aplay pipe fallback failed: %s", e)
 
     _speak_fallback_pico2wave(text)
 

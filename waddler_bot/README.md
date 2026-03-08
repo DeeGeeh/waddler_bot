@@ -17,7 +17,9 @@ This folder contains the robot stack: **two decoupled pipelines** — movement (
 
 ## How to run
 
-- **Rust:** From `rust_motor/`, build the PyO3 module. On the Pi, use maturin/cross to build for `arm-unknown-linux-gnueabihf` and copy the built `.so` into this project (e.g. so Python can `import rust_motor`). On your laptop, `maturin develop` for local testing.
+- **Rust:** Cross-build for Pi from the repo root: `./cross-build-pi.sh` (builds `rust_motor` in **release** mode for aarch64 and copies `rust_motor.so` into `python_controller/`). On your laptop, `maturin develop` from `rust_motor/` for local testing. Use the release build on the Pi for best performance.
 - **Python:** From `python_controller/`, create a venv, run `pip install -r requirements.txt`, set `OPENAI_API_KEY` (see `.env.example`), then `python main.py`.
 - **Joystick:** Open `http://<PI_IP>:8080` in any browser on the same Wi-Fi (phone or laptop). Find the Pi’s IP with `hostname -I`. For reliable demos, assign the Pi a static IP in your router’s DHCP settings.
 - **Personality:** Voice uses the OpenAI API (Whisper, GPT-4o, TTS); ensure the Pi has internet and `OPENAI_API_KEY` is set.
+
+**Deployment (Pi Zero 2 W):** After syncing `waddler_bot/` to the Pi, run from `python_controller/`: `python main.py`. Logging is quiet by default (`LOG_LEVEL=WARNING`); set `LOG_LEVEL=INFO` or `DEBUG` if you need more output.

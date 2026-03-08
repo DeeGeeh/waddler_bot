@@ -29,7 +29,7 @@ if ! command -v aarch64-linux-gnu-gcc &>/dev/null; then
 fi
 rustup target add "$TARGET" 2>/dev/null || true
 
-# Build
+# Build (release required for Pi performance)
 cd "$RUST_MOTOR"
 cargo build --release --target "$TARGET"
 

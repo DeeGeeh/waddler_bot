@@ -1,11 +1,16 @@
 """Start both pipelines in separate threads: movement (joystick server) and personality (voice/TTS)."""
 
+import os
 import logging
 import sys
 import threading
 from collections.abc import Callable
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+_LOG_LEVEL = os.environ.get("LOG_LEVEL", "WARNING").strip().upper()
+logging.basicConfig(
+    level=getattr(logging, _LOG_LEVEL, logging.WARNING),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 import asyncio
 import uvicorn
 from server import app
@@ -24,7 +29,13 @@ def _run_and_capture(fn: Callable[[], None]) -> None:
 
 def start_movement_server() -> None:
     print("Starting movement server...")
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8080,
+        log_level="warning",
+        access_log=False,
+    )
 
 
 def start_personality() -> None:

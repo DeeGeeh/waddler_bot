@@ -28,22 +28,34 @@ HTML = """
     const joystick = nipplejs.create({ zone: document.getElementById('zone'), mode: 'static',
                                        position: { left: '50%', top: '50%' }, color: 'white' });
 
+    const DEADZONE = 0.2;
+    const RATE_MS = 66;
     let lastCmd = 'stop';
-    const sendCmd = (cmd) => {
-      if (ws.readyState === WebSocket.OPEN && cmd !== lastCmd) {
-        ws.send(cmd);
-        lastCmd = cmd;
-      }
-    };
+    let lastSendTime = 0;
+
+    function sendCmd(cmd) {
+      if (ws.readyState !== WebSocket.OPEN || cmd === lastCmd) return;
+      if (cmd !== 'stop' && (Date.now() - lastSendTime) < RATE_MS) return;
+      ws.send(cmd);
+      lastCmd = cmd;
+      lastSendTime = Date.now();
+    }
+
+    function angleToCmd(angle) {
+      if (angle > 55 && angle < 125) return 'forward';
+      if (angle > 235 && angle < 305) return 'backward';
+      if (angle >= 125 && angle <= 235) return 'left';
+      return 'right';
+    }
 
     joystick.on('move', (_, data) => {
+      const dist = (data.distance != null) ? data.distance : (data.force != null ? data.force : 1);
+      if (dist < DEADZONE) {
+        sendCmd('stop');
+        return;
+      }
       const angle = data.angle.degree;
-      let cmd = 'stop';
-      if (angle > 45 && angle < 135)         cmd = 'forward';
-      else if (angle > 225 && angle < 315)   cmd = 'backward';
-      else if (angle >= 135 && angle <= 225) cmd = 'left';
-      else                                   cmd = 'right';
-      sendCmd(cmd);
+      sendCmd(angleToCmd(angle));
     });
 
     joystick.on('end', () => sendCmd('stop'));
